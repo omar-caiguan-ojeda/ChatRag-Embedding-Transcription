@@ -12,7 +12,7 @@ function extractTextFromMessage(message: UIMessage): string {
     const parts = (message as { parts?: unknown }).parts;
     if (Array.isArray(parts)) {
       const textFromParts = parts
-        .map((part: any) => {
+        .map((part: unknown) => {
           if (typeof part === 'string') return part;
           if (part && typeof part === 'object') {
             if ('text' in part && typeof part.text === 'string') return part.text;
@@ -30,14 +30,23 @@ function extractTextFromMessage(message: UIMessage): string {
     if (typeof content === 'string' && content.trim()) return content;
     if (Array.isArray(content)) {
       const textFromContent = content
-        .map((part: any) => (typeof part === 'string' ? part : part?.text || part?.content || ''))
+        // .map((part: any) => (typeof part === 'string' ? part : part?.text || part?.content || ''))
+        .map((part: unknown) => {
+          if (typeof part === 'string') return part;
+          if (part && typeof part === 'object') {
+            const candidate = part as { text?: unknown; content?: unknown };
+            if (typeof candidate.text === 'string') return candidate.text;
+            if (typeof candidate.content === 'string') return candidate.content;
+          }
+          return '';
+        })
         .join(' ')
         .trim();
       if (textFromContent) return textFromContent;
     }
 
     // 3) Fallback final: si hubiera una propiedad `text`
-    const maybeText = (message as any)?.text;
+    const maybeText = (message as { text?: unknown })?.text;
     if (typeof maybeText === 'string' && maybeText.trim()) return maybeText;
   } catch (e) {
     console.warn('⚠️ Error extrayendo texto del mensaje:', e);
