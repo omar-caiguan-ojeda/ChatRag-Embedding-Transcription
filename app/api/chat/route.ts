@@ -89,8 +89,8 @@ export async function POST(req: Request) {
     systemPrompt += `\n\n*Advertencia de Baja Confianza:* Nota: La confianza de esta respuesta es moderada. Se recomienda verificar las fuentes originales.`;
   }
 
-  // Añadir el contexto recuperado
-  systemPrompt += `\n\n### Contexto de Evidencia (Resultados del Retriever)\nLa siguiente es la única información que debes usar para construir tu respuesta. Está ordenada por relevancia.\n\n${ragContext}`;
+  // Añadir el contexto recuperado (ahora es texto plano/markdown)
+  systemPrompt += `\n\n### Contexto de Evidencia (Resultados del Retriever)\nLa siguiente es la única información que debes usar para construir tu respuesta. Cada pieza de evidencia incluye su fuente. Usa el número de la evidencia (Evidencia 1, Evidencia 2, etc.) para tus citas en el texto, como [1], [2], etc.\n\n${ragContext}`;
 
   // 4. Ejecutar el stream con el nuevo prompt
   console.log('🔍 SystemPrompt completo enviado al modelo.');
