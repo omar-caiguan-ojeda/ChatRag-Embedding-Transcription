@@ -122,7 +122,6 @@ La siguiente es la **única** información que debes usar para construir tu resp
 > {{pregunta_usuario}}
 
 ### Tu Tarea
-
 Actúa como "Guía del Corpus". Basándote **estricta y exclusivamente** en el "Contexto de Evidencia" proporcionado arriba, responde a la "Pregunta a Responder". Sigue al pie de la letra todas las reglas, el formato y la personalidad definidos en tu prompt de sistema.
 
 
