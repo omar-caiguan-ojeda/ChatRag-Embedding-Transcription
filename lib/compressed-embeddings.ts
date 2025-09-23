@@ -175,7 +175,7 @@ async function searchEmbeddings(
 
   try {
     await EmbeddingStore.loadEmbeddings();
-  } catch (error) {
+  } catch {
     console.error('❌ No se pudieron cargar los embeddings');
     return [];
   }
@@ -314,7 +314,7 @@ export async function diagnosticCompressedEmbeddings(): Promise<{
       sampleContent: embeddings[0]?.content.substring(0, 100) + '...' || undefined,
       compressionInfo: metadata?.compression ? `Comprimido con ${metadata.compression}` : 'Sin compresión'
     };
-  } catch (error) {
+  } catch {
     return {
       isLoaded: false,
       embeddingsCount: 0,

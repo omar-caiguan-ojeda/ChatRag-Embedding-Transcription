@@ -732,7 +732,7 @@ async function searchLocalEmbeddings(
   
   try {
     await EmbeddingStore.loadEmbeddings();
-  } catch (error) {
+  } catch {
     console.error('No se pudieron cargar los embeddings');
     return [];
   }
@@ -944,7 +944,7 @@ async function searchLocalEmbeddingsWithQuality(
   
   try {
     await EmbeddingStore.loadEmbeddings();
-  } catch (error) {
+  } catch {
     console.error('No se pudieron cargar los embeddings');
     return [];
   }
@@ -1018,7 +1018,6 @@ export async function getLocalPDFRAGContextWithQuality(
   const {
     matchCount = 6, // Aumentar para compensar filtrado
     minSimilarity = 0.15,
-    includeMetadata = true,
     requireHighQuality = true
   } = options;
 
@@ -1123,7 +1122,7 @@ export async function diagnosticEmbeddings(): Promise<{
       metadata,
       sampleContent: embeddings[0]?.content.substring(0, 100) + '...' || undefined
     };
-  } catch (error) {
+  } catch {
     return {
       isLoaded: false,
       embeddingsCount: 0,

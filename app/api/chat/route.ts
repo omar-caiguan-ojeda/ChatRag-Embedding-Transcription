@@ -2,44 +2,12 @@
 // CÓDIGO ROUTE.TS COMPLETAMENTE CORREGIDO - Sin errores de tipos
 
 import { streamText, UIMessage, convertToModelMessages } from 'ai';
-import { getLocalPDFRAGContextWithQuality, diagnosticEmbeddings } from '@/lib/local-pdf-retriever';
+//import { getLocalPDFRAGContextWithQuality, diagnosticEmbeddings } from '@/lib/local-pdf-retriever';
+import { getCompressedRAGContext, diagnosticCompressedEmbeddings } from '@/lib/compressed-embeddings';
 import { NextResponse } from 'next/server';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
-
-// Función para validar que la respuesta usa solo el corpus
-function validateCorpusOnlyResponse(response: string, ragContext: string): {
-  isValid: boolean;
-  issues: string[];
-} {
-  const issues: string[] = [];
-
-  // Verificar que hay citas del corpus
-  const citations = response.match(/\[\d+\]/g);
-  if (!citations || citations.length === 0) {
-    issues.push("No hay citas del corpus en la respuesta");
-  }
-
-  // Verificar frases que indican conocimiento externo
-  const externalKnowledgePatterns = [
-    /en general|generalmente|típicamente/i,
-    /se sabe que|es conocido que|comúnmente/i,
-    /según la ciencia|según estudios/i,
-    /normalmente|usualmente|por lo general/i
-  ];
-
-  for (const pattern of externalKnowledgePatterns) {
-    if (pattern.test(response)) {
-      issues.push(`Posible uso de conocimiento externo: ${pattern.source}`);
-    }
-  }
-
-  return {
-    isValid: issues.length === 0,
-    issues
-  };
-}
 
 // Extrae el texto de un mensaje del usuario, soportando distintos formatos de UIMessage
 function extractTextFromMessage(message: UIMessage): string {
@@ -106,7 +74,8 @@ export async function POST(req: Request) {
 
   try {
     // 1. DIAGNÓSTICO DEL SISTEMA PRIMERO
-    const diagnostics = await diagnosticEmbeddings();
+    //const diagnostics = await diagnosticEmbeddings();
+    const diagnostics = await diagnosticCompressedEmbeddings();
 
     if (!diagnostics.isLoaded || diagnostics.embeddingsCount === 0) {
       console.error('PROBLEMA CRÍTICO: Sistema de embeddings no disponible');
@@ -127,7 +96,7 @@ El sistema de búsqueda en el corpus no está funcionando correctamente.
           role: 'user',
           //content: systemErrorReply,
           parts: [{  
-            type: 'text',        // ✅ CORRECCIÓN 1: Añadido 'type'
+            type: 'text',        // CORRECCIÓN 1: Añadido 'type'
             text: systemErrorReply,
           }]
         }]),
@@ -140,17 +109,15 @@ El sistema de búsqueda en el corpus no está funcionando correctamente.
     // 2. BÚSQUEDA CON FILTRO DE CALIDAD MÁS ESTRICTA
     console.log('Buscando en corpus para:', userQuery);
 
-    const { context: ragContext, topScore, resultsCount, qualityInfo } = 
-      await getLocalPDFRAGContextWithQuality(userQuery, {
+    const { context: ragContext, topScore, resultsCount } = 
+      await getCompressedRAGContext(userQuery, {
         matchCount: 8,           // Más resultados
         minSimilarity: 0.20,     // Umbral más alto
         includeMetadata: true,
-        requireHighQuality: true
       });
 
     console.log(`Resultados: ${resultsCount}, Top score: ${topScore.toFixed(3)}`);
     console.log(`Contexto length: ${ragContext?.length || 0}`);
-    console.log(`Calidad: ${qualityInfo}`);
 
     // 3. VERIFICACIÓN DE CALIDAD MÍNIMA MÁS ESTRICTA
     if (topScore < 0.4 || !ragContext || ragContext.trim().length === 0 || resultsCount < 2) {
@@ -178,7 +145,7 @@ SOLO puedo responder basándome en el corpus local cargado.`;
           role: 'user',
           //content: insufficientDataReply,
           parts: [{ 
-            type: 'text',        // ✅ CORRECCIÓN 2: Añadido 'type'
+            type: 'text',        // CORRECCIÓN 2: Añadido 'type'
             text: insufficientDataReply 
           }]
         }]),
@@ -206,7 +173,7 @@ if (!ragContext || ragContext.trim().length === 0) {
 // REGLAS CRÍTICAS INQUEBRANTABLES:
 // 1. SOLO puedes usar la información del "Contexto de Evidencia" proporcionado
 // 2. NUNCA uses conocimiento general o externo
-// 3. Si la respuesta NO está en el contexto, debes decir "La información solicitada no está disponible en el corpus"
+// 3. Si la respuesta NO está en el contexto, debes decir "No disponible en el corpus"
 // 4. SIEMPRE cita las evidencias numeradas [1], [2], etc.
 // 5. NO inventes, no asumas, no extrapoles
 
@@ -288,7 +255,7 @@ RESPUESTA REQUERIDA: Solo usando el contexto anterior. Sé profesional, claro, c
 
 
     // 5. CORRECCIÓN: Construcción correcta de messagesForModel
-    const messagesForModel: any[] = [];
+    const messagesForModel: UIMessage[] = [];
 
     // Procesar mensajes anteriores manteniendo compatibilidad
     if (Array.isArray(messages) && messages.length > 1) {
@@ -298,10 +265,10 @@ RESPUESTA REQUERIDA: Solo usando el contexto anterior. Sé profesional, claro, c
       for (const msg of previousMessages) {
         const textContent = extractTextFromMessage(msg);
         messagesForModel.push({
+          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: msg.role,
-          content: textContent,
           parts: textContent ? [{ 
-            type: 'text',        // ✅ CORRECCIÓN 3: Añadido 'type'
+            type: 'text',        // CORRECCIÓN 3: Añadido 'type'
             text: textContent 
           }] : []
         });
@@ -310,10 +277,10 @@ RESPUESTA REQUERIDA: Solo usando el contexto anterior. Sé profesional, claro, c
 
     // Añadir mensaje actual con contexto restrictivo
     messagesForModel.push({
+      id: `user-msg-${Date.now()}`,
       role: 'user',
-      content: restrictiveUserMessage,
       parts: [{ 
-        type: 'text',        // ✅ CORRECCIÓN 4: Añadido 'type'
+        type: 'text',        // CORRECCIÓN 4: Añadido 'type'
         text: restrictiveUserMessage 
       }]
     });
@@ -321,7 +288,7 @@ RESPUESTA REQUERIDA: Solo usando el contexto anterior. Sé profesional, claro, c
     // 6. CONFIGURACIÓN DEL MODELO MÁS RESTRICTIVA
     const result = streamText({
       model: model,
-      messages: convertToModelMessages(messagesForModel), // ✅ Ahora compatible
+      messages: convertToModelMessages(messagesForModel), // Ahora compatible
       system: restrictiveSystemPrompt,
       temperature: 0.01,        // Temperatura muy baja
       topP: 0.1,               // Sampling más restrictivo
@@ -348,9 +315,8 @@ Se produjo un error técnico al procesar tu consulta.
       model: model,
       messages: convertToModelMessages([{
         role: 'user',
-        //content: errorReply,
         parts: [{ 
-          type: 'text',        // ✅ CORRECCIÓN 5: Añadido 'type'
+          type: 'text',        // CORRECCIÓN 5: Añadido 'type'
           text: errorReply 
         }],
       }]),
