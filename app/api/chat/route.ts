@@ -125,7 +125,7 @@ El sistema de búsqueda en el corpus no está funcionando correctamente.
         model: model,
         messages: convertToModelMessages([{
           role: 'user',
-          content: systemErrorReply,
+          //content: systemErrorReply,
           parts: [{  
             type: 'text',        // ✅ CORRECCIÓN 1: Añadido 'type'
             text: systemErrorReply,
@@ -176,7 +176,7 @@ SOLO puedo responder basándome en el corpus local cargado.`;
         model: model,
         messages: convertToModelMessages([{
           role: 'user',
-          content: insufficientDataReply,
+          //content: insufficientDataReply,
           parts: [{ 
             type: 'text',        // ✅ CORRECCIÓN 2: Añadido 'type'
             text: insufficientDataReply 
@@ -348,7 +348,7 @@ Se produjo un error técnico al procesar tu consulta.
       model: model,
       messages: convertToModelMessages([{
         role: 'user',
-        content: errorReply,
+        //content: errorReply,
         parts: [{ 
           type: 'text',        // ✅ CORRECCIÓN 5: Añadido 'type'
           text: errorReply 
