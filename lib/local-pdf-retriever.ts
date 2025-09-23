@@ -81,7 +81,7 @@
 //       const data: EmbeddingFileStructure = JSON.parse(fileContent);
 
 //       // Manejar diferentes estructuras de archivo
-//       if (data && Array.isArray(data.embeddings)) {
+//       if (data && data.embeddings && Array.isArray(data.embeddings)) {
 //         this.embeddings = data.embeddings;
 //         this.fileMetadata = data.metadata || null;
 //       } else if (Array.isArray(data)) {
@@ -182,6 +182,12 @@
 
 //     const embeddings = EmbeddingStore.getEmbeddings();
     
+//     // CORRECCIÓN CRÍTICA: Validar que embeddings sea un array válido
+//     if (!embeddings || !Array.isArray(embeddings) || embeddings.length === 0) {
+//       console.error('Error: embeddings no es un array válido o está vacío');
+//       return [];
+//     }
+    
 //     console.log(`Buscando en ${embeddings.length} embeddings...`);
 
 //     const results: SearchResult[] = embeddings
@@ -190,7 +196,7 @@
 //         similarity: cosineSimilarity(queryEmbedding, entry.embedding),
 //         metadata: entry.metadata,
 //       }))
-//       .filter(result => result.similarity >= minSimilarity) // Filtrar resultados muy irrelevantes
+//       .filter(result => result.similarity >= minSimilarity) // Ahora es seguro usar .filter()
 //       .sort((a, b) => b.similarity - a.similarity)
 //       .slice(0, matchCount);
 
@@ -293,62 +299,72 @@
 // } {
 //   const content = result.content.toLowerCase();
   
-//   // Filtros de contenido de baja calidad
+//   // Filtros de contenido REALMENTE inútil (más específicos)
 //   const lowQualityPatterns = [
-//     /^\d+%.*reportes?.*otras? cosas?/i, // Estadísticas vagas como "95% de reportes son otras cosas"
-//     /^se sabe que.*%/i, // Afirmaciones estadísticas vagas
-//     /^la mayoría de.*son/i, // Generalizaciones sin contexto
-//     /^según estudios/i, // Referencias a estudios sin especificar
-//     /^los expertos dicen/i, // Apelación a autoridad vaga
-//     /^\w{1,20}$/, // Texto muy corto (menos de 20 caracteres)
-//     /^[^.!?]*[.!?]$/ // Solo una oración muy simple
+//     /^se sabe que \d+%.*reportes?.*otras? cosas?$/i, // Estadística específica sin contexto
+//     /^según estudios generales/i, // Referencias vagas a estudios
+//     /^los expertos dicen que$/i, // Apelación a autoridad sin contenido
+//     /^\w{1,15}$/, // Texto muy corto (menos de 15 caracteres)
+//     /^sí\.?$|^no\.?$|^tal vez\.?$/i // Respuestas de una palabra
 //   ];
 
-//   // Patrones de contenido útil específico
+//   // Patrones de contenido específico y útil
 //   const highQualityPatterns = [
-//     /testimonios?|experiencia|relat[oó]|narr[oó]/i, // Testimonios específicos
-//     /contact[oó]|encuentro|avistamiento/i, // Experiencias de contacto
-//     /abduc[ción|cion]|secuestro/i, // Experiencias de abducción
-//     /nave|objeto|luz|ser|entidad/i, // Descripciones específicas
-//     /lugar|fecha|hora|ubicación/i, // Details específicos
-//     /nombre propio|persona específica/i // Referencias a individuos
+//     /testimonios?|experiencia|relat[oó]|narr[oó]|cuent[oa]/i, // Testimonios
+//     /contact[oó]|encuentro|avistamiento|aparición/i, // Experiencias de contacto  
+//     /abduc[ción|cion]|secuestro|llevaron|tomaron/i, // Abducciones
+//     /nave|objeto|luz|ser|entidad|criatura/i, // Descripciones específicas
+//     /vio?|observ[oó]|mir[oó]|escuch[oó]/i, // Verbos de percepción
+//     /lugar|ubicación|ciudad|país|zona/i, // Referencias geográficas
+//     /año|fecha|día|noche|hora/i, // Referencias temporales
+//     /[A-Z][a-z]+\s+[A-Z][a-z]+/i, // Posibles nombres propios
+//     /razas?|especies?|tipo|clase/i, // Clasificaciones
+//     /tierra|planeta|sistema|galaxia|universo/i, // Referencias cósmicas
 //   ];
 
-//   // Evaluar patrones negativos
+//   // Evaluar solo patrones REALMENTE problemáticos
 //   for (const pattern of lowQualityPatterns) {
 //     if (pattern.test(content)) {
 //       return {
-//         score: result.similarity * 0.3, // Penalizar fuertemente
+//         score: result.similarity * 0.4, // Menos penalización
 //         isUseful: false,
-//         reason: 'Contenido genérico o estadística vaga'
+//         reason: 'Contenido muy genérico o inútil'
 //       };
 //     }
 //   }
 
-//   // Evaluar patrones positivos
+//   // Evaluar contenido útil
 //   let qualityBonus = 1.0;
+//   let matchingPatterns = 0;
+  
 //   for (const pattern of highQualityPatterns) {
 //     if (pattern.test(content)) {
-//       qualityBonus += 0.1; // Bonus por contenido específico
+//       qualityBonus += 0.05; // Bonus más pequeño pero acumulativo
+//       matchingPatterns++;
 //     }
 //   }
 
-//   // Penalizar contenido muy corto
-//   if (result.content.length < 50) {
-//     qualityBonus *= 0.5;
+//   // Bonus adicional por múltiples patrones útiles
+//   if (matchingPatterns >= 3) {
+//     qualityBonus += 0.15;
+//   }
+
+//   // Penalización menor por contenido corto
+//   if (result.content.length < 30) {
+//     qualityBonus *= 0.7; // Menos penalización
 //   }
 
 //   // Bonus por contenido sustancial
-//   if (result.content.length > 200) {
-//     qualityBonus *= 1.1;
+//   if (result.content.length > 150) {
+//     qualityBonus *= 1.05;
 //   }
 
 //   const adjustedScore = result.similarity * qualityBonus;
 
 //   return {
 //     score: adjustedScore,
-//     isUseful: adjustedScore > 0.25, // Umbral mínimo para utilidad
-//     reason: qualityBonus > 1.1 ? 'Contenido específico y detallado' : undefined
+//     isUseful: adjustedScore > 0.20, // Umbral más bajo
+//     reason: matchingPatterns >= 2 ? `Contenido específico (${matchingPatterns} indicadores)` : undefined
 //   };
 // }
 
@@ -377,6 +393,12 @@
 //     const queryEmbedding = Array.from(queryEmbeddingOutput.data as Float32Array);
 
 //     const embeddings = EmbeddingStore.getEmbeddings();
+    
+//     // CORRECCIÓN CRÍTICA: Validar que embeddings sea un array válido
+//     if (!embeddings || !Array.isArray(embeddings) || embeddings.length === 0) {
+//       console.error('Error: embeddings no es un array válido o está vacío');
+//       return [];
+//     }
     
 //     console.log(`Buscando en ${embeddings.length} embeddings...`);
 
@@ -626,7 +648,7 @@ class EmbeddingStore {
       const data: EmbeddingFileStructure = JSON.parse(fileContent);
 
       // Manejar diferentes estructuras de archivo
-      if (data && Array.isArray(data.embeddings)) {
+      if (data && data.embeddings && Array.isArray(data.embeddings)) {
         this.embeddings = data.embeddings;
         this.fileMetadata = data.metadata || null;
       } else if (Array.isArray(data)) {
@@ -727,6 +749,12 @@ async function searchLocalEmbeddings(
 
     const embeddings = EmbeddingStore.getEmbeddings();
     
+    // CORRECCIÓN CRÍTICA: Validar que embeddings sea un array válido
+    if (!embeddings || !Array.isArray(embeddings) || embeddings.length === 0) {
+      console.error('Error: embeddings no es un array válido o está vacío');
+      return [];
+    }
+    
     console.log(`Buscando en ${embeddings.length} embeddings...`);
 
     const results: SearchResult[] = embeddings
@@ -735,7 +763,7 @@ async function searchLocalEmbeddings(
         similarity: cosineSimilarity(queryEmbedding, entry.embedding),
         metadata: entry.metadata,
       }))
-      .filter(result => result.similarity >= minSimilarity) // Filtrar resultados muy irrelevantes
+      .filter(result => result.similarity >= minSimilarity) // Ahora es seguro usar .filter()
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, matchCount);
 
@@ -932,6 +960,12 @@ async function searchLocalEmbeddingsWithQuality(
     const queryEmbedding = Array.from(queryEmbeddingOutput.data as Float32Array);
 
     const embeddings = EmbeddingStore.getEmbeddings();
+    
+    // CORRECCIÓN CRÍTICA: Validar que embeddings sea un array válido
+    if (!embeddings || !Array.isArray(embeddings) || embeddings.length === 0) {
+      console.error('Error: embeddings no es un array válido o está vacío');
+      return [];
+    }
     
     console.log(`Buscando en ${embeddings.length} embeddings...`);
 
